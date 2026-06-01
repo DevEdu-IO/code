@@ -1,0 +1,13 @@
+# Compiled binary
+/devedu
+/dist/
+
+# Go
+*.test
+*.out
+vendor/
+
+# Editor / OS
+.DS_Store
+.idea/
+.vscode/
