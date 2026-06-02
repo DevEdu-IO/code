@@ -73,7 +73,7 @@ func exitCode(err error) int {
 
 func truncate(s string) string {
 	if len(s) > maxRead {
-		return s[:maxRead] + "\n…[truncated]"
+		return s[:maxRead] + "\n...[truncated]"
 	}
 	return s
 }
@@ -108,7 +108,7 @@ func readFile(p string) (string, error) {
 		return "", err
 	}
 	if len(data) > maxRead {
-		return string(data[:maxRead]) + "\n…[truncated]", nil
+		return string(data[:maxRead]) + "\n...[truncated]", nil
 	}
 	return string(data), nil
 }
@@ -170,7 +170,7 @@ func Summary(name string, params map[string]string) string {
 	case "run_command":
 		c := params["command"]
 		if len(c) > 60 {
-			c = c[:57] + "…"
+			c = c[:57] + "..."
 		}
 		return "run `" + c + "`"
 	default:

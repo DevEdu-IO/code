@@ -73,7 +73,7 @@ func (c *Client) Chat(ctx context.Context, prompt string) (string, error) {
 	case http.StatusOK:
 		return parsed.Response, nil
 	case http.StatusUnauthorized:
-		return "", fmt.Errorf("unauthorized — check your API key (DEVEDU_API_KEY)")
+		return "", fmt.Errorf("unauthorized - check your API key (DEVEDU_API_KEY)")
 	case http.StatusBadGateway:
 		return "", fmt.Errorf("the AI service is unavailable right now, please try again")
 	default:
@@ -151,7 +151,7 @@ func (c *Client) agent(ctx context.Context, body map[string]any) (*AgentResponse
 	case http.StatusConflict: // no agent configured on this instance
 		return nil, ErrNoAgent
 	case http.StatusUnauthorized:
-		return nil, fmt.Errorf("unauthorized — check your API key (DEVEDU_API_KEY)")
+		return nil, fmt.Errorf("unauthorized - check your API key (DEVEDU_API_KEY)")
 	case http.StatusBadGateway:
 		return nil, fmt.Errorf("the AI service is unavailable right now, please try again")
 	default:

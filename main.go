@@ -16,6 +16,7 @@ import (
 	"github.com/tghastings/devedu-code/internal/agent"
 	"github.com/tghastings/devedu-code/internal/client"
 	"github.com/tghastings/devedu-code/internal/config"
+	"github.com/tghastings/devedu-code/internal/glyph"
 	"github.com/tghastings/devedu-code/internal/repl"
 	"github.com/tghastings/devedu-code/internal/tui"
 )
@@ -97,9 +98,9 @@ func hostLabel(url string) string {
 // firstRunSetup walks a new user through entering their DevEdu URL and API key,
 // then stores them locally so they never have to do it again.
 func firstRunSetup(cfg config.Config, in *bufio.Reader, out io.Writer) (config.Config, error) {
-	fmt.Fprintln(out, "Welcome to DevEdu Code 👋  Let's get you set up (you only do this once).")
-	fmt.Fprintln(out, "Find your API key in DevEdu — students and teachers both have one:")
-	fmt.Fprintln(out, "  sign in → account menu (your email) → API key.")
+	fmt.Fprintln(out, "Welcome to DevEdu Code! Let's get you set up (you only do this once).")
+	fmt.Fprintln(out, "Find your API key in DevEdu "+glyph.Dash+" students and teachers both have one:")
+	fmt.Fprintln(out, "  sign in -> account menu (your email) -> API key.")
 	fmt.Fprintln(out)
 
 	fmt.Fprintf(out, "DevEdu URL [%s]: ", cfg.BaseURL)
@@ -139,7 +140,7 @@ func confirmTool(tc client.ToolCall) bool {
 	case "run_command":
 		fmt.Fprintf(os.Stderr, "  $  run: %s\n     run this command? [y/N] ", tc.Params["command"])
 	default:
-		fmt.Fprintf(os.Stderr, "  ✏  write %s (%d bytes)? [y/N] ", tc.Params["path"], len(tc.Params["content"]))
+		fmt.Fprintf(os.Stderr, "  %s  write %s (%d bytes)? [y/N] ", glyph.Pencil, tc.Params["path"], len(tc.Params["content"]))
 	}
 	line, _ := bufio.NewReader(os.Stdin).ReadString('\n')
 	line = strings.ToLower(strings.TrimSpace(line))
@@ -153,7 +154,7 @@ func stdinIsTerminal() bool {
 }
 
 func usage() {
-	fmt.Fprint(os.Stderr, `DevEdu Code — terminal coding assistant
+	fmt.Fprint(os.Stderr, `DevEdu Code - terminal coding assistant
 
 Usage:
   devedu                 start an interactive session

@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	cl "github.com/tghastings/devedu-code/internal/client"
+	"github.com/tghastings/devedu-code/internal/glyph"
 	"github.com/tghastings/devedu-code/internal/tools"
 )
 
@@ -50,18 +51,18 @@ func runOne(tc cl.ToolCall, out io.Writer, confirm ConfirmFunc) cl.ToolResult {
 	res := cl.ToolResult{ActionGroup: tc.ActionGroup, Function: tc.Function}
 
 	if tools.NeedsConfirm(tc.Function) && (confirm == nil || !confirm(tc)) {
-		fmt.Fprintf(out, "  ✗ skipped %s\n", tools.Summary(tc.Function, tc.Params))
+		fmt.Fprintf(out, "  %s skipped %s\n", glyph.Cross, tools.Summary(tc.Function, tc.Params))
 		res.Output = "The user declined to run this tool."
 		return res
 	}
 
 	output, err := tools.Run(tc.Function, tc.Params)
 	if err != nil {
-		fmt.Fprintf(out, "  ✗ %s — %v\n", tools.Summary(tc.Function, tc.Params), err)
+		fmt.Fprintf(out, "  %s %s %s %v\n", glyph.Cross, tools.Summary(tc.Function, tc.Params), glyph.Dash, err)
 		res.Output = "error: " + err.Error()
 		return res
 	}
-	fmt.Fprintf(out, "  ✓ %s\n", tools.Summary(tc.Function, tc.Params))
+	fmt.Fprintf(out, "  %s %s\n", glyph.Check, tools.Summary(tc.Function, tc.Params))
 	res.Output = output
 	return res
 }

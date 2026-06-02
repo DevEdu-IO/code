@@ -6,6 +6,7 @@ package tui
 import (
 	"context"
 	"errors"
+	"runtime"
 	"strings"
 
 	"github.com/charmbracelet/bubbles/spinner"
@@ -18,6 +19,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 
 	cl "github.com/tghastings/devedu-code/internal/client"
+	"github.com/tghastings/devedu-code/internal/glyph"
 	"github.com/tghastings/devedu-code/internal/tools"
 )
 
@@ -105,8 +107,8 @@ type model struct {
 
 func newModel(c *cl.Client, host string) model {
 	ta := textarea.New()
-	ta.Placeholder = "Ask DevEdu Code about your code, or to make a change…"
-	ta.Prompt = "❯ "
+	ta.Placeholder = "Ask DevEdu Code about your code, or to make a change" + glyph.Ellipsis
+	ta.Prompt = glyph.Prompt + " "
 	ta.ShowLineNumbers = false
 	ta.SetHeight(3)
 	ta.CharLimit = 0
@@ -114,7 +116,13 @@ func newModel(c *cl.Client, host string) model {
 	ta.KeyMap.InsertNewline.SetEnabled(false)
 
 	sp := spinner.New()
-	sp.Spinner = spinner.Dot
+	// The braille Dot spinner doesn't render in most Windows consoles; use the
+	// ASCII Line spinner there.
+	if runtime.GOOS == "windows" {
+		sp.Spinner = spinner.Line
+	} else {
+		sp.Spinner = spinner.Dot
+	}
 	sp.Style = lipgloss.NewStyle().Foreground(pink)
 
 	return model{client: c, host: host, ta: ta, sp: sp, useAgent: true}
@@ -224,19 +232,19 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 func (m model) View() string {
 	if !m.ready {
-		return "starting DevEdu Code…"
+		return "starting DevEdu Code" + glyph.Ellipsis
 	}
 	header := lipgloss.JoinHorizontal(lipgloss.Center, headerStyle.Render("DevEdu Code"), " ", hostStyle.Render(m.host))
 
 	status := " "
 	switch {
 	case m.confirm != nil:
-		status = confirmBox.Render(" "+tools.Summary(m.confirm.Function, m.confirm.Params)+" — apply? ") + helpStyle.Render("  [y] yes   [any other key] no")
+		status = confirmBox.Render(" "+tools.Summary(m.confirm.Function, m.confirm.Params)+" "+glyph.Dash+" apply? ") + helpStyle.Render("  [y] yes   [any other key] no")
 	case m.running:
-		status = m.sp.View() + helpStyle.Render(" working…")
+		status = m.sp.View() + helpStyle.Render(" working"+glyph.Ellipsis)
 	}
 
-	help := helpStyle.Render("enter: send  ·  ↑/↓ pgup/pgdn: scroll  ·  /exit or ctrl+c: quit")
+	help := helpStyle.Render("enter: send  " + glyph.Bullet + "  " + glyph.ArrowUp + "/" + glyph.ArrowDown + " pgup/pgdn: scroll  " + glyph.Bullet + "  /exit or ctrl+c: quit")
 	input := inputStyle.Width(m.width - 2).Render(m.ta.View())
 	return lipgloss.JoinVertical(lipgloss.Left, header, m.vp.View(), status, input, help)
 }
@@ -303,7 +311,7 @@ func (m *model) resolveConfirm(approved bool) tea.Cmd {
 	if approved {
 		m.runTool(tc)
 	} else {
-		m.msgs = append(m.msgs, message{role: roleTool, text: "✗ declined " + tools.Summary(tc.Function, tc.Params)})
+		m.msgs = append(m.msgs, message{role: roleTool, text: glyph.Cross + " declined " + tools.Summary(tc.Function, tc.Params)})
 		m.results = append(m.results, cl.ToolResult{ActionGroup: tc.ActionGroup, Function: tc.Function, Output: "The user declined to run this tool."})
 	}
 	return m.processTools()
@@ -312,10 +320,10 @@ func (m *model) resolveConfirm(approved bool) tea.Cmd {
 func (m *model) runTool(tc cl.ToolCall) {
 	out, err := tools.Run(tc.Function, tc.Params)
 	if err != nil {
-		m.msgs = append(m.msgs, message{role: roleErr, text: "✗ " + tools.Summary(tc.Function, tc.Params) + " — " + err.Error()})
+		m.msgs = append(m.msgs, message{role: roleErr, text: glyph.Cross + " " + tools.Summary(tc.Function, tc.Params) + " " + glyph.Dash + " " + err.Error()})
 		out = "error: " + err.Error()
 	} else {
-		m.msgs = append(m.msgs, message{role: roleTool, text: "✓ " + tools.Summary(tc.Function, tc.Params)})
+		m.msgs = append(m.msgs, message{role: roleTool, text: glyph.Check + " " + tools.Summary(tc.Function, tc.Params)})
 	}
 	m.results = append(m.results, cl.ToolResult{ActionGroup: tc.ActionGroup, Function: tc.Function, Output: out})
 }
@@ -370,7 +378,7 @@ func (m *model) renderTranscript() {
 			b.WriteString(botLabel.Render("DevEdu") + "\n" + m.renderMarkdown(msg.text) + "\n")
 		case roleTool:
 			label := toolStyle
-			if strings.HasPrefix(msg.text, "✓") {
+			if strings.HasPrefix(msg.text, glyph.Check) {
 				label = toolOK
 			}
 			b.WriteString(label.Render("  "+msg.text) + "\n")

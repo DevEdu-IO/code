@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"io"
 	"strings"
+
+	"github.com/tghastings/devedu-code/internal/glyph"
 )
 
 // Chatter is anything that can answer a prompt (the API client).
@@ -22,11 +24,11 @@ func Run(ctx context.Context, c Chatter, in io.Reader, out io.Writer) error {
 
 	var transcript strings.Builder
 
-	fmt.Fprintln(out, "DevEdu Code — your terminal coding assistant.")
+	fmt.Fprintln(out, "DevEdu Code "+glyph.Dash+" your terminal coding assistant.")
 	fmt.Fprintln(out, "Type a request and press Enter. /exit to quit, /reset to clear context.")
 
 	for {
-		fmt.Fprint(out, "\n\033[1;35m›\033[0m ")
+		fmt.Fprint(out, "\n\033[1;35m"+glyph.Prompt+"\033[0m ")
 		if !scanner.Scan() {
 			break // EOF (Ctrl-D)
 		}
@@ -44,9 +46,9 @@ func Run(ctx context.Context, c Chatter, in io.Reader, out io.Writer) error {
 
 		transcript.WriteString("User: " + line + "\n")
 
-		fmt.Fprint(out, "\033[2mthinking…\033[0m")
+		fmt.Fprint(out, "\033[2mthinking"+glyph.Ellipsis+"\033[0m")
 		reply, err := c.Chat(ctx, transcript.String())
-		fmt.Fprint(out, "\r\033[K") // clear the "thinking…" line
+		fmt.Fprint(out, "\r\033[K") // clear the "thinking" line
 		if err != nil {
 			fmt.Fprintf(out, "\033[31merror:\033[0m %v\n", err)
 			continue
