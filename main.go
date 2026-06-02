@@ -20,11 +20,21 @@ import (
 	"github.com/tghastings/devedu-code/internal/tui"
 )
 
+// version is set at build time via -ldflags "-X main.version=...".
+// It stays "dev" for local builds.
+var version = "dev"
+
 func main() {
 	apiKey := flag.String("api-key", "", "DevEdu API key (or set DEVEDU_API_KEY)")
 	baseURL := flag.String("url", "", "DevEdu base URL (or set DEVEDU_API_URL)")
+	showVersion := flag.Bool("version", false, "print the version and exit")
 	flag.Usage = usage
 	flag.Parse()
+
+	if *showVersion {
+		fmt.Println("devedu", version)
+		return
+	}
 
 	cfg := config.Load(*apiKey, *baseURL)
 	stdin := bufio.NewReader(os.Stdin)

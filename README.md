@@ -4,7 +4,25 @@ A terminal coding assistant — like Claude Code — powered by your **DevEdu** 
 It authenticates with your personal DevEdu API key and talks to an AI model through
 DevEdu's Amazon Bedrock proxy (`POST /api/v1/chat`).
 
-## Build
+## Install
+
+**macOS / Linux** — one line (detects your OS/arch, grabs the latest release,
+verifies its checksum, and puts `devedu` on your PATH):
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/DevEdu-IO/code/main/install.sh | sh
+```
+
+Install somewhere else (no sudo): `INSTALL_DIR=~/.local/bin`, or pin a version
+with `VERSION=v1.0.0`.
+
+**Windows** — download `devedu-windows-amd64.exe` from the
+[Releases page](https://github.com/DevEdu-IO/code/releases) and rename it to
+`devedu.exe`.
+
+Check it: `devedu --version`.
+
+## Build from source
 
 ```bash
 cd code
