@@ -59,19 +59,20 @@ trap 'rm -f "$tmp" "$tmp.sums"' EXIT
 printf 'Downloading %s (%s)…\n' "$asset" "$VERSION"
 fetch "${base}/${asset}" "$tmp" || err "Download failed. Has a release been published yet? https://github.com/$REPO/releases"
 
-# --- verify checksum (best effort: only if tools + sums file available) ----
-sha=""
+# --- verify checksum (MANDATORY: fail closed if we can't verify) -----------
 if command -v sha256sum >/dev/null 2>&1; then sha="sha256sum"
 elif command -v shasum >/dev/null 2>&1; then sha="shasum -a 256"
+else
+  err "Need 'sha256sum' or 'shasum' to verify the download. Install one and re-run, or download + verify manually from https://github.com/$REPO/releases"
 fi
-if [ -n "$sha" ] && fetch "${base}/SHA256SUMS.txt" "$tmp.sums" 2>/dev/null; then
-  expected=$(grep " ${asset}\$" "$tmp.sums" 2>/dev/null | awk '{print $1}' || true)
-  if [ -n "$expected" ]; then
-    actual=$($sha "$tmp" | awk '{print $1}')
-    [ "$expected" = "$actual" ] || err "Checksum mismatch for ${asset} — refusing to install."
-    printf 'Checksum verified.\n'
-  fi
-fi
+fetch "${base}/SHA256SUMS.txt" "$tmp.sums" \
+  || err "Could not fetch SHA256SUMS.txt — refusing to install an unverified binary."
+# Match the asset's line robustly: '<hash>  name' or '<hash> *name'.
+expected=$(awk -v a="$asset" '$2 == a || $2 == "*" a { print $1; exit }' "$tmp.sums")
+[ -n "$expected" ] || err "No checksum listed for ${asset} in SHA256SUMS.txt — refusing to install."
+actual=$($sha "$tmp" | awk '{print $1}')
+[ "$expected" = "$actual" ] || err "Checksum mismatch for ${asset} — refusing to install (expected $expected, got $actual)."
+printf 'Checksum verified.\n'
 
 chmod +x "$tmp"
 

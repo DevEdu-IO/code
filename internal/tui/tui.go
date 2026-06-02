@@ -239,7 +239,11 @@ func (m model) View() string {
 	status := " "
 	switch {
 	case m.confirm != nil:
-		status = confirmBox.Render(" "+tools.Summary(m.confirm.Function, m.confirm.Params)+" "+glyph.Dash+" apply? ") + helpStyle.Render("  [y] yes   [any other key] no")
+		prompt := "apply this change?"
+		if m.confirm.Function == "run_command" {
+			prompt = "run this command?"
+		}
+		status = confirmBox.Render(" "+prompt+" ") + helpStyle.Render("  [y] yes   [any other key] no")
 	case m.running:
 		status = m.sp.View() + helpStyle.Render(" working"+glyph.Ellipsis)
 	}
@@ -291,6 +295,10 @@ func (m *model) processTools() tea.Cmd {
 		tc := m.pending[0]
 		if tools.NeedsConfirm(tc.Function) {
 			m.confirm = &tc
+			// Show the FULL action (untruncated) in the scrollable transcript so
+			// the user sees exactly what they're approving — the status line below
+			// is only a short prompt.
+			m.msgs = append(m.msgs, message{role: roleTool, text: glyph.Pencil + " approve: " + tools.ConfirmText(tc.Function, tc.Params)})
 			m.renderTranscript()
 			return nil // wait for the user's y/n
 		}

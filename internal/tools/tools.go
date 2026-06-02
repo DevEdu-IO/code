@@ -81,7 +81,10 @@ func truncate(s string) string {
 const maxRead = 200 * 1024 // cap reads so a huge file can't blow up the prompt
 
 // safePath resolves p under the working directory and rejects anything that
-// escapes it (via .. or absolute paths).
+// escapes it — via .., absolute paths, OR symlinks. The symlink-resolved target
+// (or, for a file that doesn't exist yet, its nearest real ancestor) must stay
+// within the symlink-resolved working root; otherwise a symlink inside the
+// sandbox could be followed out of it.
 func safePath(p string) (string, error) {
 	if strings.TrimSpace(p) == "" {
 		return "", fmt.Errorf("missing path")
@@ -90,12 +93,43 @@ func safePath(p string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	abs := filepath.Clean(filepath.Join(cwd, p))
-	rel, err := filepath.Rel(cwd, abs)
+	root, err := filepath.EvalSymlinks(cwd)
+	if err != nil {
+		root = filepath.Clean(cwd)
+	}
+
+	abs := filepath.Clean(filepath.Join(root, p))
+	real, err := resolveReal(abs)
+	if err != nil {
+		return "", err
+	}
+	rel, err := filepath.Rel(root, real)
 	if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
 		return "", fmt.Errorf("path %q is outside the working directory", p)
 	}
-	return abs, nil
+	return real, nil
+}
+
+// resolveReal returns the fully symlink-resolved absolute path for p. If p does
+// not exist yet (e.g. a new file being written), it resolves the nearest
+// existing ancestor and re-appends the remaining components, so the location is
+// validated against the real path of its parent rather than a lexical guess.
+func resolveReal(p string) (string, error) {
+	cur, rest := p, ""
+	for {
+		if real, err := filepath.EvalSymlinks(cur); err == nil {
+			if rest == "" {
+				return real, nil
+			}
+			return filepath.Join(real, rest), nil
+		}
+		parent := filepath.Dir(cur)
+		if parent == cur {
+			return "", fmt.Errorf("cannot resolve path %q", p)
+		}
+		rest = filepath.Join(filepath.Base(cur), rest)
+		cur = parent
+	}
 }
 
 func readFile(p string) (string, error) {
@@ -152,6 +186,21 @@ func writeFile(p, content string) (string, error) {
 		return "", err
 	}
 	return fmt.Sprintf("wrote %d bytes to %s", len(content), p), nil
+}
+
+// ConfirmText is the FULL, untruncated description shown when asking the user to
+// approve a side-effecting tool. Unlike Summary (a short transcript label), it
+// never hides any of the command — informed consent requires seeing exactly what
+// will run.
+func ConfirmText(name string, params map[string]string) string {
+	switch name {
+	case "write_file":
+		return fmt.Sprintf("write %s (%d bytes)", params["path"], len(params["content"]))
+	case "run_command":
+		return "run: " + params["command"]
+	default:
+		return Summary(name, params)
+	}
 }
 
 // Summary is a short, human-readable label for the TUI ("read main.go").
