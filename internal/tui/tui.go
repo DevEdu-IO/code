@@ -25,7 +25,10 @@ import (
 
 // Run launches the interactive TUI and blocks until the user quits.
 func Run(c *cl.Client, host string) error {
-	p := tea.NewProgram(newModel(c, host), tea.WithAltScreen())
+	// WithMouseCellMotion enables mouse-wheel scrolling of the transcript
+	// (the viewport handles wheel events itself) — important on Windows, where
+	// users expect to scroll with the wheel rather than PgUp/PgDn.
+	p := tea.NewProgram(newModel(c, host), tea.WithAltScreen(), tea.WithMouseCellMotion())
 	_, err := p.Run()
 	return err
 }
@@ -248,7 +251,7 @@ func (m model) View() string {
 		status = m.sp.View() + helpStyle.Render(" working"+glyph.Ellipsis)
 	}
 
-	help := helpStyle.Render("enter: send  " + glyph.Bullet + "  " + glyph.ArrowUp + "/" + glyph.ArrowDown + " pgup/pgdn: scroll  " + glyph.Bullet + "  /exit or ctrl+c: quit")
+	help := helpStyle.Render("enter: send  " + glyph.Bullet + "  scroll: mouse wheel or pgup/pgdn  " + glyph.Bullet + "  /exit or ctrl+c: quit")
 	input := inputStyle.Width(m.width - 2).Render(m.ta.View())
 	return lipgloss.JoinVertical(lipgloss.Left, header, m.vp.View(), status, input, help)
 }
