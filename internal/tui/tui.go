@@ -53,9 +53,19 @@ var (
 	errStyle    = lipgloss.NewStyle().Foreground(red)
 	helpStyle   = lipgloss.NewStyle().Foreground(muted)
 	confirmBox  = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#ffffff")).Background(violet).Padding(0, 1)
-	inputStyle  = lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).BorderForeground(violet).Padding(0, 1)
+	inputStyle  = lipgloss.NewStyle().Border(inputBorder()).BorderForeground(violet).Padding(0, 1)
 	welcomeText = lipgloss.NewStyle().Foreground(muted).Italic(true)
 )
+
+// inputBorder returns rounded corners on macOS/Linux and the CP437-safe normal
+// border on Windows, whose legacy consoles can't render rounded corners (╭╮╰╯)
+// but do render the classic box-drawing characters.
+func inputBorder() lipgloss.Border {
+	if runtime.GOOS == "windows" {
+		return lipgloss.NormalBorder()
+	}
+	return lipgloss.RoundedBorder()
+}
 
 // ---- model ---------------------------------------------------------------
 
@@ -227,9 +237,23 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
+	// Route input. Typed keys go ONLY to the textarea: the viewport's default
+	// keymap binds letters (j/k line, d/u half-page, b/f/space page), so feeding
+	// it keystrokes would scroll the transcript as you type. The transcript
+	// scrolls via the mouse wheel and PgUp/PgDn only.
 	var tcmd, vcmd tea.Cmd
-	m.ta, tcmd = m.ta.Update(msg)
-	m.vp, vcmd = m.vp.Update(msg)
+	if key, ok := msg.(tea.KeyMsg); ok {
+		switch key.Type {
+		case tea.KeyPgUp, tea.KeyPgDown:
+			m.vp, vcmd = m.vp.Update(msg)
+		default:
+			m.ta, tcmd = m.ta.Update(msg)
+		}
+	} else {
+		// Mouse wheel scrolls the transcript; cursor blink drives the textarea.
+		m.vp, vcmd = m.vp.Update(msg)
+		m.ta, tcmd = m.ta.Update(msg)
+	}
 	return m, tea.Batch(tcmd, vcmd)
 }
 
@@ -251,7 +275,12 @@ func (m model) View() string {
 		status = m.sp.View() + helpStyle.Render(" working"+glyph.Ellipsis)
 	}
 
-	help := helpStyle.Render("enter: send  " + glyph.Bullet + "  scroll: mouse wheel or pgup/pgdn  " + glyph.Bullet + "  /exit or ctrl+c: quit")
+	// A subtle cue when the transcript has more content below the fold.
+	scrollHint := ""
+	if !m.vp.AtBottom() {
+		scrollHint = lipgloss.NewStyle().Foreground(pink).Render(glyph.ArrowDown+" more ") + helpStyle.Render(glyph.Bullet+"  ")
+	}
+	help := scrollHint + helpStyle.Render("enter: send  "+glyph.Bullet+"  scroll: mouse wheel or pgup/pgdn  "+glyph.Bullet+"  /exit or ctrl+c: quit")
 	input := inputStyle.Width(m.width - 2).Render(m.ta.View())
 	return lipgloss.JoinVertical(lipgloss.Left, header, m.vp.View(), status, input, help)
 }
@@ -413,7 +442,30 @@ func markdownStyle() ansi.StyleConfig {
 	}
 	// No left indent on the document so replies sit flush with the "DevEdu" label.
 	s.Document.Margin = uintPtr(0)
+
+	// The dark style renders H2-H6 as a bare "## "/"### " prefix with no styling,
+	// so they come through as raw "## Header". Strip the hash prefixes and give
+	// every heading a clean, bold, brand-colored look instead.
+	styleHeading(&s.H1, "#f706b0") // pink
+	styleHeading(&s.H2, "#9b7bff") // violet
+	styleHeading(&s.H3, "#b9adff") // lavender
+	styleHeading(&s.H4, "#8a86a0") // muted
+	styleHeading(&s.H5, "#8a86a0")
+	styleHeading(&s.H6, "#8a86a0")
 	return s
+}
+
+// styleHeading clears glamour's literal "#"-prefix on a heading and applies a
+// bold, brand-colored style with a blank line above it.
+func styleHeading(h *ansi.StyleBlock, color string) {
+	c, bold := color, true
+	h.Prefix = ""
+	h.Suffix = ""
+	h.BlockPrefix = "\n"
+	h.BlockSuffix = "\n"
+	h.Color = &c
+	h.BackgroundColor = nil
+	h.Bold = &bold
 }
 
 func uintPtr(u uint) *uint { return &u }
