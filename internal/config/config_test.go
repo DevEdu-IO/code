@@ -2,6 +2,7 @@ package config
 
 import (
 	"os"
+	"path/filepath"
 	"testing"
 )
 
@@ -12,6 +13,7 @@ func isolateConfig(t *testing.T) {
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
 	t.Setenv("DEVEDU_API_KEY", "")
 	t.Setenv("DEVEDU_API_URL", "")
+	t.Setenv("DEVEDU_API_KEY_FILE", "")
 }
 
 func TestSaveAndLoadRoundTrip(t *testing.T) {
@@ -64,6 +66,27 @@ func TestLoadPrecedence(t *testing.T) {
 	got = Load("", "")
 	if got.APIKey != "from_env" {
 		t.Errorf("env should win over file: got %q", got.APIKey)
+	}
+}
+
+func TestLoadKeyFromFile(t *testing.T) {
+	isolateConfig(t)
+	// A mounted key file (DEVEDU_API_KEY_FILE) is read fresh, trimmed, and beats
+	// the env var and stored config — this is how a rotated container key is
+	// picked up without re-entering anything.
+	f := filepath.Join(t.TempDir(), "api-key")
+	if err := os.WriteFile(f, []byte("dvedu_fromfile\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("DEVEDU_API_KEY_FILE", f)
+	t.Setenv("DEVEDU_API_KEY", "from_env")
+
+	if got := Load("", "").APIKey; got != "dvedu_fromfile" {
+		t.Errorf("key file should win over env (and be trimmed): got %q", got)
+	}
+	// An explicit --api-key flag still overrides the mounted file.
+	if got := Load("from_flag", "").APIKey; got != "from_flag" {
+		t.Errorf("flag should beat key file: got %q", got)
 	}
 }
 

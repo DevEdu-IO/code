@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 const (
@@ -32,14 +33,31 @@ func Path() (string, error) {
 	return filepath.Join(dir, appDir, fileName), nil
 }
 
-// Load resolves config in order of precedence: flags > environment > the stored
-// config file > defaults. It does NOT prompt — callers handle a missing API key.
+// Load resolves config in order of precedence: flag > DEVEDU_API_KEY_FILE >
+// DEVEDU_API_KEY env > the stored config file > defaults. It does NOT prompt —
+// callers handle a missing API key.
 func Load(apiKeyFlag, baseURLFlag string) Config {
 	stored, _ := loadFile()
 	return Config{
-		APIKey:  firstNonEmpty(apiKeyFlag, os.Getenv("DEVEDU_API_KEY"), stored.APIKey),
+		APIKey:  firstNonEmpty(apiKeyFlag, keyFromFile(), os.Getenv("DEVEDU_API_KEY"), stored.APIKey),
 		BaseURL: firstNonEmpty(baseURLFlag, os.Getenv("DEVEDU_API_URL"), stored.BaseURL, DefaultBaseURL),
 	}
+}
+
+// keyFromFile reads the API key from DEVEDU_API_KEY_FILE, if set. In a managed
+// DevEdu container the platform mounts the user's key as a file (from a k8s
+// Secret) so it's auto-loaded; reading it fresh means a regenerated key is
+// picked up on the next run without re-entering anything.
+func keyFromFile() string {
+	path := os.Getenv("DEVEDU_API_KEY_FILE")
+	if path == "" {
+		return ""
+	}
+	b, err := os.ReadFile(path)
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSpace(string(b))
 }
 
 func loadFile() (Config, error) {
